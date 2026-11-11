@@ -37,7 +37,7 @@ export default function DashboardPage() {
     }
     const { error: rpcError } = await getSupabaseBrowserClient().rpc("create_tenant_for_current_user", {
       p_legal_name: legalName, p_display_name: displayName, p_slug: slug,
-    });
+    } as never);
     if (rpcError) setError("No se pudo crear la empresa. Comprueba que el identificador esté disponible.");
     else { setSuccess("Empresa creada correctamente."); await load(); }
     setBusy(false);
