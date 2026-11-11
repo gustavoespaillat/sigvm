@@ -115,7 +115,7 @@ create or replace function public.has_tenant_permission(p_tenant_id uuid, p_perm
 returns boolean
 language sql stable security invoker
 set search_path = ''
-as $
+as $$
   select exists (
     select 1
     from public.tenant_memberships m
@@ -127,7 +127,7 @@ as $
       and m.status = 'active'
       and p.code = p_permission
   );
-$;
+$$;
 
 -- Functions are callable only by authenticated application users.
 -- PostgreSQL grants EXECUTE to PUBLIC by default; revoke it explicitly.
