@@ -1,0 +1,3 @@
+-- Seeds no productivos. No insertar médicos, pacientes ni datos reales.
+-- Los roles y permisos iniciales se agregarán mediante una migración de bootstrap
+-- posterior para que la asignación inicial de tenant_owner sea transaccional.
