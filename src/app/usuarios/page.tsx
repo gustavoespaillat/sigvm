@@ -12,6 +12,7 @@ export default function UsuariosPage(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
  const [success,setSuccess]=useState("");
+ const [currentEmail,setCurrentEmail]=useState("");
  useEffect(()=>{
   let active=true;
   (async()=>{
@@ -19,6 +20,7 @@ export default function UsuariosPage(){
    const {data:{user}}=await db.auth.getUser();
    if(!active)return;
    if(!user){router.replace("/login");return;}
+   setCurrentEmail(user.email?.toLowerCase()??"");
    const {data,error:e}=await db.from("tenant_memberships").select("tenant_id,tenants(display_name),roles(code)").eq("user_id",user.id).eq("status","active");
    if(!active)return;
    if(e)setError("No fue posible verificar tus permisos.");
@@ -32,9 +34,17 @@ export default function UsuariosPage(){
   const form=e.currentTarget;
   const email=String(new FormData(form).get("email")??"").trim().toLowerCase();
   if(!email.includes("@")){setError("Introduce un correo válido.");return;}
+  if(email===currentEmail){setError("Esta es tu cuenta de administrador. Ya perteneces a la empresa y no necesitas agregarte de nuevo.");return;}
   setBusy(true);setError("");setSuccess("");
   const {error:rpcError}=await getSupabaseBrowserClient().rpc("add_registered_visitador",{p_tenant_id:tenantId,p_email:email} as never);
-  if(rpcError)setError("No se pudo agregar. Verifica que el usuario esté registrado, tenga su correo confirmado y no pertenezca ya a la empresa.");
+  if(rpcError){
+   const detail=rpcError.message.toLowerCase();
+   if(detail.includes("already belongs"))setError("Este usuario ya pertenece a la empresa.");
+   else if(detail.includes("register and confirm"))setError("El usuario debe registrarse y confirmar su correo antes de ser agregado.");
+   else if(detail.includes("only tenant owner"))setError("Solo el Administrador principal puede agregar usuarios.");
+   else if(detail.includes("invalid email"))setError("El correo electrónico no es válido.");
+   else setError("No fue posible agregar el usuario. Intenta nuevamente o revisa los permisos.");
+  }
   else{form.reset();setSuccess("Usuario agregado como visitador médico.");}
   setBusy(false);
  }
