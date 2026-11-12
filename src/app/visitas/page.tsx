@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 type Tenant = { tenant_id: string; tenants: { display_name: string } | null };
 type Territory = { id: string; name: string };
 type Member = { user_id: string };
+type StaffProfile = { user_id: string; display_name: string };
 type Physician = { id: string; full_name: string };
 type VisitEvent = { id: string; visit_id: string; previous_status: string | null; new_status: string; occurred_at: string };
 type Visit = { id: string; physician_id: string; scheduled_at: string; status: string; notes: string | null };
@@ -17,6 +18,7 @@ export default function VisitsPage() {
  const [physicians,setPhysicians]=useState<Physician[]>([]);
  const [territories,setTerritories]=useState<Territory[]>([]);
  const [members,setMembers]=useState<Member[]>([]);
+ const [staffProfiles,setStaffProfiles]=useState<StaffProfile[]>([]);
  const [visits,setVisits]=useState<Visit[]>([]);
  const [events,setEvents]=useState<VisitEvent[]>([]);
  const [loading,setLoading]=useState(true);
@@ -40,20 +42,21 @@ export default function VisitsPage() {
   return()=>{active=false;};
  },[router]);
  useEffect(()=>{
-  if(!tenantId){setPhysicians([]);setVisits([]);setEvents([]);setTerritories([]);setMembers([]);return;}
+  if(!tenantId){setPhysicians([]);setVisits([]);setEvents([]);setTerritories([]);setMembers([]);setStaffProfiles([]);return;}
   let active=true;
   (async()=>{
    const db=getSupabaseBrowserClient();
-   const [p,v,h,t,m]=await Promise.all([
+   const [p,v,h,t,m,s]=await Promise.all([
     db.from("physicians").select("id,full_name").eq("tenant_id",tenantId).order("full_name"),
     db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100),
     db.from("medical_visit_events").select("id,visit_id,previous_status,new_status,occurred_at").eq("tenant_id",tenantId).order("occurred_at",{ascending:false}).limit(30),
     db.from("territories").select("id,name").eq("tenant_id",tenantId).order("name"),
-    db.from("tenant_memberships").select("user_id").eq("tenant_id",tenantId).eq("status","active")
+    db.from("tenant_memberships").select("user_id").eq("tenant_id",tenantId).eq("status","active"),
+    db.from("visitador_profiles").select("user_id,display_name").eq("tenant_id",tenantId)
    ]);
    if(!active)return;
-   if(p.error||v.error||h.error||t.error||m.error)setError("No fue posible consultar toda la información de visitas.");
-   else {setPhysicians((p.data??[]) as Physician[]);setVisits((v.data??[]) as Visit[]);setEvents((h.data??[]) as VisitEvent[]);setTerritories((t.data??[]) as Territory[]);setMembers((m.data??[]) as Member[]);}
+   if(p.error||v.error||h.error||t.error||m.error||s.error)setError("No fue posible consultar toda la información de visitas.");
+   else {setPhysicians((p.data??[]) as Physician[]);setVisits((v.data??[]) as Visit[]);setEvents((h.data??[]) as VisitEvent[]);setTerritories((t.data??[]) as Territory[]);setMembers((m.data??[]) as Member[]);setStaffProfiles((s.data??[]) as StaffProfile[]);}
   })();
   return()=>{active=false;};
  },[tenantId,revision]);
@@ -83,7 +86,7 @@ export default function VisitsPage() {
  }
  if(loading)return <main className="p-8">Cargando visitas...</main>;
  return <main className="min-h-screen bg-slate-50 p-6 text-slate-900"><div className="mx-auto max-w-5xl space-y-6">
-  <header className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">SIGVM · Visitas médicas</h1><nav className="flex gap-4"><Link className="text-blue-700 underline" href="/crm">Médicos y centros</Link><Link className="text-blue-700 underline" href="/territorios">Territorios</Link><Link className="text-blue-700 underline" href="/dashboard">Dashboard</Link></nav></header>
+  <header className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">SIGVM · Visitas médicas</h1><nav className="flex gap-4"><Link className="text-blue-700 underline" href="/crm">Médicos y centros</Link><Link className="text-blue-700 underline" href="/territorios">Territorios</Link><Link className="text-blue-700 underline" href="/visitadores">Visitadores</Link><Link className="text-blue-700 underline" href="/dashboard">Dashboard</Link></nav></header>
   <label className="block">Empresa <select className="ml-2 rounded border p-2" value={tenantId} onChange={e=>{setTenantId(e.target.value);setError("");setSuccess("");}}>{tenants.map(t=><option key={t.tenant_id} value={t.tenant_id}>{t.tenants?.display_name??"Empresa"}</option>)}</select></label>
   {error&&<p role="alert" className="rounded bg-red-50 p-3 text-red-700">{error}</p>}
   {success&&<p role="status" className="rounded bg-green-50 p-3 text-green-700">{success}</p>}
@@ -93,7 +96,7 @@ export default function VisitsPage() {
     {physicians.length===0?<p className="mt-3">Registra primero un médico en el módulo CRM.</p>:<form onSubmit={createVisit} className="mt-4 space-y-4">
      <label className="block">Médico<select required name="physician_id" defaultValue="" className="mt-1 w-full rounded border p-2"><option value="" disabled>Seleccionar médico</option>{physicians.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></label>
      <label className="block">Fecha y hora<input required type="datetime-local" name="scheduled_at" className="mt-1 w-full rounded border p-2"/></label>
-     <label className="block">Responsable<select name="assigned_to" className="mt-1 w-full rounded border p-2"><option value="">Sin asignar</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.user_id.slice(0,8)} (usuario)</option>)}</select></label>
+     <label className="block">Responsable<select name="assigned_to" className="mt-1 w-full rounded border p-2"><option value="">Sin asignar</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{staffProfiles.find(p=>p.user_id===m.user_id)?.display_name??("Usuario "+m.user_id.slice(0,8))}</option>)}</select></label>
      <label className="block">Territorio<select name="territory_id" className="mt-1 w-full rounded border p-2"><option value="">Sin territorio</option>{territories.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
      <label className="block">Observaciones<textarea name="notes" maxLength={2000} rows={3} className="mt-1 w-full rounded border p-2"/></label>
      <button disabled={busy} className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50">{busy?"Guardando...":"Programar visita"}</button>
