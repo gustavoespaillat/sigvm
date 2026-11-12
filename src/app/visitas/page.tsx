@@ -61,12 +61,22 @@ export default function VisitsPage() {
   else {form.reset();setSuccess("Visita programada correctamente.");setRevision(n=>n+1);}
   setBusy(false);
  }
+ async function changeStatus(visit:Visit,status:"completed"|"cancelled") {
+  if(busy||visit.status!=="planned"||!tenantId)return;
+  setBusy(true);setError("");setSuccess("");
+  const {data,error:e}=await getSupabaseBrowserClient().from("medical_visits")
+   .update({status}).eq("id",visit.id).eq("tenant_id",tenantId).eq("status","planned").select("id");
+  if(e||!data?.length)setError("No se pudo actualizar la visita. Comprueba los permisos o el estado actual.");
+  else {setSuccess(status==="completed"?"Visita completada.":"Visita cancelada.");setRevision(n=>n+1);}
+  setBusy(false);
+ }
  if(loading)return <main className="p-8">Cargando visitas...</main>;
  return <main className="min-h-screen bg-slate-50 p-6 text-slate-900"><div className="mx-auto max-w-5xl space-y-6">
   <header className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">SIGVM · Visitas médicas</h1><nav className="flex gap-4"><Link className="text-blue-700 underline" href="/crm">Médicos y centros</Link><Link className="text-blue-700 underline" href="/dashboard">Dashboard</Link></nav></header>
   <label className="block">Empresa <select className="ml-2 rounded border p-2" value={tenantId} onChange={e=>{setTenantId(e.target.value);setError("");setSuccess("");}}>{tenants.map(t=><option key={t.tenant_id} value={t.tenant_id}>{t.tenants?.display_name??"Empresa"}</option>)}</select></label>
   {error&&<p role="alert" className="rounded bg-red-50 p-3 text-red-700">{error}</p>}
   {success&&<p role="status" className="rounded bg-green-50 p-3 text-green-700">{success}</p>}
+  {tenantId&&<div className="grid grid-cols-3 gap-3 text-center">{(["planned","completed","cancelled"] as const).map((status,i)=><div key={status} className="rounded border bg-white p-3"><p className="text-2xl font-bold">{visits.filter(v=>v.status===status).length}</p><p className="text-sm">{["Programadas","Completadas","Canceladas"][i]}</p></div>)}</div>}
   {!tenantId?<p>Primero crea una empresa desde el dashboard.</p>:<div className="grid gap-6 md:grid-cols-2">
    <section className="rounded-xl border bg-white p-5"><h2 className="text-xl font-semibold">Programar visita</h2>
     {physicians.length===0?<p className="mt-3">Registra primero un médico en el módulo CRM.</p>:<form onSubmit={createVisit} className="mt-4 space-y-4">
@@ -77,7 +87,7 @@ export default function VisitsPage() {
     </form>}
    </section>
    <section className="rounded-xl border bg-white p-5"><h2 className="text-xl font-semibold">Visitas programadas</h2>
-    {visits.length===0?<p className="mt-3">Todavía no hay visitas registradas.</p>:<ul className="mt-4 space-y-3">{visits.map(v=><li key={v.id} className="rounded border p-3"><strong>{physicians.find(p=>p.id===v.physician_id)?.full_name??"Médico"}</strong><p>{new Date(v.scheduled_at).toLocaleString("es-DO")}</p><p className="text-sm">Estado: {v.status==="planned"?"Programada":v.status==="completed"?"Completada":"Cancelada"}</p>{v.notes&&<p className="mt-1 text-sm">{v.notes}</p>}</li>)}</ul>}
+    {visits.length===0?<p className="mt-3">Todavía no hay visitas registradas.</p>:<ul className="mt-4 space-y-3">{visits.map(v=><li key={v.id} className="rounded border p-3"><strong>{physicians.find(p=>p.id===v.physician_id)?.full_name??"Médico"}</strong><p>{new Date(v.scheduled_at).toLocaleString("es-DO")}</p><p className="text-sm">Estado: {v.status==="planned"?"Programada":v.status==="completed"?"Completada":"Cancelada"}</p>{v.notes&&<p className="mt-1 text-sm">{v.notes}</p>}{v.status==="planned"&&<div className="mt-3 flex gap-2"><button type="button" disabled={busy} onClick={()=>changeStatus(v,"completed")} className="rounded bg-green-700 px-3 py-1 text-white disabled:opacity-50">Completar</button><button type="button" disabled={busy} onClick={()=>changeStatus(v,"cancelled")} className="rounded border px-3 py-1 disabled:opacity-50">Cancelar</button></div>}</li>)}</ul>}
    </section>
   </div>}
  </div></main>;
