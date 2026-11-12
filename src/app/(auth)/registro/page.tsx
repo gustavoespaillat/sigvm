@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { AuthApiError } from "@supabase/supabase-js";
 
 export default function RegisterPage() {
   const [message, setMessage] = useState("");
@@ -19,7 +20,15 @@ export default function RegisterPage() {
       });
       if (authError) throw authError;
       setMessage("Solicitud de registro recibida. Revisa tu correo para confirmar la cuenta, si se requiere.");
-    } catch { setError("No se pudo registrar la cuenta. Revisa los datos."); }
+    } catch (cause) {
+      if (cause instanceof AuthApiError && (cause.code === "over_email_send_rate_limit" || cause.status === 429)) {
+        setError("Se alcanzó temporalmente el límite de correos de confirmación. Espera antes de volver a intentarlo o contacta al administrador.");
+      } else if (cause instanceof AuthApiError && cause.code === "email_address_invalid") {
+        setError("La dirección de correo no es válida.");
+      } else {
+        setError("No se pudo completar el registro. Comprueba la configuración de autenticación o consulta al administrador.");
+      }
+    }
     finally { setBusy(false); }
   }
   return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-900">
