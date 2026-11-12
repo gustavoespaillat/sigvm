@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Tenant = { tenant_id: string; tenants: { display_name: string } | null };
-type Physician = { id: string; full_name: string };
+type Territory = { id: string; name: string };\ntype Member = { user_id: string };\ntype Physician = { id: string; full_name: string };
 type VisitEvent = { id: string; visit_id: string; previous_status: string | null; new_status: string; occurred_at: string };\ntype Visit = { id: string; physician_id: string; scheduled_at: string; status: string; notes: string | null };
 export default function VisitsPage() {
  const router=useRouter();
  const [tenants,setTenants]=useState<Tenant[]>([]);
  const [tenantId,setTenantId]=useState("");
- const [physicians,setPhysicians]=useState<Physician[]>([]);
+ const [physicians,setPhysicians]=useState<Physician[]>([]);\n const [territories,setTerritories]=useState<Territory[]>([]);\n const [members,setMembers]=useState<Member[]>([]);
  const [visits,setVisits]=useState<Visit[]>([]);\n const [events,setEvents]=useState<VisitEvent[]>([]);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
@@ -34,17 +34,17 @@ export default function VisitsPage() {
   return()=>{active=false;};
  },[router]);
  useEffect(()=>{
-  if(!tenantId){setPhysicians([]);setVisits([]);setEvents([]);return;}
+  if(!tenantId){setPhysicians([]);setVisits([]);setEvents([]);setTerritories([]);setMembers([]);return;}
   let active=true;
   (async()=>{
    const db=getSupabaseBrowserClient();
-   const [p,v,h]=await Promise.all([
+   const [p,v,h,t,m]=await Promise.all([
     db.from("physicians").select("id,full_name").eq("tenant_id",tenantId).order("full_name"),
-    db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100),\n    db.from("medical_visit_events").select("id,visit_id,previous_status,new_status,occurred_at").eq("tenant_id",tenantId).order("occurred_at",{ascending:false}).limit(30)
+    db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100),\n    db.from("medical_visit_events").select("id,visit_id,previous_status,new_status,occurred_at").eq("tenant_id",tenantId).order("occurred_at",{ascending:false}).limit(30),\n    db.from("territories").select("id,name").eq("tenant_id",tenantId).order("name"),\n    db.from("tenant_memberships").select("user_id").eq("tenant_id",tenantId).eq("status","active")
    ]);
    if(!active)return;
-   if(p.error||v.error||h.error)setError("No fue posible consultar médicos, visitas o historial.");
-   else {setPhysicians((p.data??[]) as Physician[]);setVisits((v.data??[]) as Visit[]);setEvents((h.data??[]) as VisitEvent[]);}
+   if(p.error||v.error||h.error||t.error||m.error)setError("No fue posible consultar toda la información de visitas.");
+   else {setPhysicians((p.data??[]) as Physician[]);setVisits((v.data??[]) as Visit[]);setEvents((h.data??[]) as VisitEvent[]);setTerritories((t.data??[]) as Territory[]);setMembers((m.data??[]) as Member[]);}
   })();
   return()=>{active=false;};
  },[tenantId,revision]);
@@ -53,10 +53,10 @@ export default function VisitsPage() {
   const form=event.currentTarget;const data=new FormData(form);
   const physician_id=String(data.get("physician_id")??"");
   const localDate=String(data.get("scheduled_at")??"");
-  const notes=String(data.get("notes")??"").trim();
+  const notes=String(data.get("notes")??"").trim();\n  const assigned_to=String(data.get("assigned_to")??"")||null;\n  const territory_id=String(data.get("territory_id")??"")||null;
   if(!physicians.some(p=>p.id===physician_id)||!localDate||!Number.isFinite(new Date(localDate).getTime())){setError("Selecciona un médico y una fecha válida.");return;}
   setBusy(true);setError("");setSuccess("");
-  const {error:e}=await getSupabaseBrowserClient().from("medical_visits").insert({tenant_id:tenantId,physician_id,scheduled_at:new Date(localDate).toISOString(),notes:notes||null});
+  const {error:e}=await getSupabaseBrowserClient().from("medical_visits").insert({tenant_id:tenantId,physician_id,scheduled_at:new Date(localDate).toISOString(),notes:notes||null,assigned_to,territory_id});
   if(e)setError("No se pudo programar la visita. Comprueba tus permisos.");
   else {form.reset();setSuccess("Visita programada correctamente.");setRevision(n=>n+1);}
   setBusy(false);
@@ -82,6 +82,8 @@ export default function VisitsPage() {
     {physicians.length===0?<p className="mt-3">Registra primero un médico en el módulo CRM.</p>:<form onSubmit={createVisit} className="mt-4 space-y-4">
      <label className="block">Médico<select required name="physician_id" defaultValue="" className="mt-1 w-full rounded border p-2"><option value="" disabled>Seleccionar médico</option>{physicians.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></label>
      <label className="block">Fecha y hora<input required type="datetime-local" name="scheduled_at" className="mt-1 w-full rounded border p-2"/></label>
+     <label className="block">Responsable<select name="assigned_to" className="mt-1 w-full rounded border p-2"><option value="">Sin asignar</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.user_id.slice(0,8)} (usuario)</option>)}</select></label>
+     <label className="block">Territorio<select name="territory_id" className="mt-1 w-full rounded border p-2"><option value="">Sin territorio</option>{territories.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
      <label className="block">Observaciones<textarea name="notes" maxLength={2000} rows={3} className="mt-1 w-full rounded border p-2"/></label>
      <button disabled={busy} className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50">{busy?"Guardando...":"Programar visita"}</button>
     </form>}
