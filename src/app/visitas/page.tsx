@@ -6,13 +6,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Tenant = { tenant_id: string; tenants: { display_name: string } | null };
 type Physician = { id: string; full_name: string };
-type Visit = { id: string; physician_id: string; scheduled_at: string; status: string; notes: string | null };
+type VisitEvent = { id: string; visit_id: string; previous_status: string | null; new_status: string; occurred_at: string };\ntype Visit = { id: string; physician_id: string; scheduled_at: string; status: string; notes: string | null };
 export default function VisitsPage() {
  const router=useRouter();
  const [tenants,setTenants]=useState<Tenant[]>([]);
  const [tenantId,setTenantId]=useState("");
  const [physicians,setPhysicians]=useState<Physician[]>([]);
- const [visits,setVisits]=useState<Visit[]>([]);
+ const [visits,setVisits]=useState<Visit[]>([]);\n const [events,setEvents]=useState<VisitEvent[]>([]);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
@@ -34,17 +34,17 @@ export default function VisitsPage() {
   return()=>{active=false;};
  },[router]);
  useEffect(()=>{
-  if(!tenantId){setPhysicians([]);setVisits([]);return;}
+  if(!tenantId){setPhysicians([]);setVisits([]);setEvents([]);return;}
   let active=true;
   (async()=>{
    const db=getSupabaseBrowserClient();
-   const [p,v]=await Promise.all([
+   const [p,v,h]=await Promise.all([
     db.from("physicians").select("id,full_name").eq("tenant_id",tenantId).order("full_name"),
-    db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100)
+    db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100),\n    db.from("medical_visit_events").select("id,visit_id,previous_status,new_status,occurred_at").eq("tenant_id",tenantId).order("occurred_at",{ascending:false}).limit(30)
    ]);
    if(!active)return;
-   if(p.error||v.error)setError("No fue posible consultar médicos o visitas.");
-   else {setPhysicians((p.data??[]) as Physician[]);setVisits((v.data??[]) as Visit[]);}
+   if(p.error||v.error||h.error)setError("No fue posible consultar médicos, visitas o historial.");
+   else {setPhysicians((p.data??[]) as Physician[]);setVisits((v.data??[]) as Visit[]);setEvents((h.data??[]) as VisitEvent[]);}
   })();
   return()=>{active=false;};
  },[tenantId,revision]);
