@@ -1,26 +1,9 @@
 -- SIGVM role and tenant isolation tests (transactional, no persistent records).
 -- Run in Supabase SQL Editor with an administrative database connection.
--- Creates synthetic test identities only within a transaction, then rolls back.
+-- Catalog-only assertions; does not create synthetic identities.
 begin;
 do $$
-declare
-  t1 uuid:=gen_random_uuid();
-  t2 uuid:=gen_random_uuid();
-  u1 uuid:=gen_random_uuid();
-  u2 uuid:=gen_random_uuid();
-  rep uuid:=gen_random_uuid();
-  owner1 uuid:=gen_random_uuid();
-  owner2 uuid:=gen_random_uuid();
-  rep_role uuid:=gen_random_uuid();
-  doc1 uuid:=gen_random_uuid();
-  doc2 uuid:=gen_random_uuid();
-  visit1 uuid:=gen_random_uuid();
-  visit2 uuid:=gen_random_uuid();
-  n integer;
 begin
-  -- This is a test scaffold; run only in an isolated test database.
-  -- The production schema has auth.users FK, audit triggers and tenant constraints.
-  -- The executable assertions below verify catalog security rather than inserting identities.
   if not exists(select 1 from pg_policies where schemaname='public' and tablename='medical_visits' and policyname='medical_visits_select_authorized') then
     raise exception 'Missing authorized visits policy';
   end if;
