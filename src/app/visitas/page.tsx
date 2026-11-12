@@ -72,7 +72,7 @@ export default function VisitsPage() {
  }
  if(loading)return <main className="p-8">Cargando visitas...</main>;
  return <main className="min-h-screen bg-slate-50 p-6 text-slate-900"><div className="mx-auto max-w-5xl space-y-6">
-  <header className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">SIGVM · Visitas médicas</h1><nav className="flex gap-4"><Link className="text-blue-700 underline" href="/crm">Médicos y centros</Link><Link className="text-blue-700 underline" href="/dashboard">Dashboard</Link></nav></header>
+  <header className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">SIGVM · Visitas médicas</h1><nav className="flex gap-4"><Link className="text-blue-700 underline" href="/crm">Médicos y centros</Link><Link className="text-blue-700 underline" href="/territorios">Territorios</Link><Link className="text-blue-700 underline" href="/dashboard">Dashboard</Link></nav></header>
   <label className="block">Empresa <select className="ml-2 rounded border p-2" value={tenantId} onChange={e=>{setTenantId(e.target.value);setError("");setSuccess("");}}>{tenants.map(t=><option key={t.tenant_id} value={t.tenant_id}>{t.tenants?.display_name??"Empresa"}</option>)}</select></label>
   {error&&<p role="alert" className="rounded bg-red-50 p-3 text-red-700">{error}</p>}
   {success&&<p role="status" className="rounded bg-green-50 p-3 text-green-700">{success}</p>}
