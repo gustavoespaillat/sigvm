@@ -5,14 +5,20 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Tenant = { tenant_id: string; tenants: { display_name: string } | null };
-type Territory = { id: string; name: string };\ntype Member = { user_id: string };\ntype Physician = { id: string; full_name: string };
-type VisitEvent = { id: string; visit_id: string; previous_status: string | null; new_status: string; occurred_at: string };\ntype Visit = { id: string; physician_id: string; scheduled_at: string; status: string; notes: string | null };
+type Territory = { id: string; name: string };
+type Member = { user_id: string };
+type Physician = { id: string; full_name: string };
+type VisitEvent = { id: string; visit_id: string; previous_status: string | null; new_status: string; occurred_at: string };
+type Visit = { id: string; physician_id: string; scheduled_at: string; status: string; notes: string | null };
 export default function VisitsPage() {
  const router=useRouter();
  const [tenants,setTenants]=useState<Tenant[]>([]);
  const [tenantId,setTenantId]=useState("");
- const [physicians,setPhysicians]=useState<Physician[]>([]);\n const [territories,setTerritories]=useState<Territory[]>([]);\n const [members,setMembers]=useState<Member[]>([]);
- const [visits,setVisits]=useState<Visit[]>([]);\n const [events,setEvents]=useState<VisitEvent[]>([]);
+ const [physicians,setPhysicians]=useState<Physician[]>([]);
+ const [territories,setTerritories]=useState<Territory[]>([]);
+ const [members,setMembers]=useState<Member[]>([]);
+ const [visits,setVisits]=useState<Visit[]>([]);
+ const [events,setEvents]=useState<VisitEvent[]>([]);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
@@ -40,7 +46,10 @@ export default function VisitsPage() {
    const db=getSupabaseBrowserClient();
    const [p,v,h,t,m]=await Promise.all([
     db.from("physicians").select("id,full_name").eq("tenant_id",tenantId).order("full_name"),
-    db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100),\n    db.from("medical_visit_events").select("id,visit_id,previous_status,new_status,occurred_at").eq("tenant_id",tenantId).order("occurred_at",{ascending:false}).limit(30),\n    db.from("territories").select("id,name").eq("tenant_id",tenantId).order("name"),\n    db.from("tenant_memberships").select("user_id").eq("tenant_id",tenantId).eq("status","active")
+    db.from("medical_visits").select("id,physician_id,scheduled_at,status,notes").eq("tenant_id",tenantId).order("scheduled_at",{ascending:true}).limit(100),
+    db.from("medical_visit_events").select("id,visit_id,previous_status,new_status,occurred_at").eq("tenant_id",tenantId).order("occurred_at",{ascending:false}).limit(30),
+    db.from("territories").select("id,name").eq("tenant_id",tenantId).order("name"),
+    db.from("tenant_memberships").select("user_id").eq("tenant_id",tenantId).eq("status","active")
    ]);
    if(!active)return;
    if(p.error||v.error||h.error||t.error||m.error)setError("No fue posible consultar toda la información de visitas.");
@@ -53,7 +62,9 @@ export default function VisitsPage() {
   const form=event.currentTarget;const data=new FormData(form);
   const physician_id=String(data.get("physician_id")??"");
   const localDate=String(data.get("scheduled_at")??"");
-  const notes=String(data.get("notes")??"").trim();\n  const assigned_to=String(data.get("assigned_to")??"")||null;\n  const territory_id=String(data.get("territory_id")??"")||null;
+  const notes=String(data.get("notes")??"").trim();
+  const assigned_to=String(data.get("assigned_to")??"")||null;
+  const territory_id=String(data.get("territory_id")??"")||null;
   if(!physicians.some(p=>p.id===physician_id)||!localDate||!Number.isFinite(new Date(localDate).getTime())){setError("Selecciona un médico y una fecha válida.");return;}
   setBusy(true);setError("");setSuccess("");
   const {error:e}=await getSupabaseBrowserClient().from("medical_visits").insert({tenant_id:tenantId,physician_id,scheduled_at:new Date(localDate).toISOString(),notes:notes||null,assigned_to,territory_id});
